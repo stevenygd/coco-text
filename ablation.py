@@ -18,19 +18,19 @@ DATA_TYPE = 'train2014'
 OUT_PATH = 'result/'
 
 def gaussian(img, bbox, **args):
-	""" [args]: ksize - (h,w) tuple specifying kernel size"""
-	img_p = np.copy(img)
-	x,y,w,h = int(bbox[0]),int(bbox[1]),bbox[2],bbox[3]
-	view = img[y:y+h,x:x+w]
-	view_p = cv2.GaussianBlur(view, args['ksize'], args['sigma'])
-	img_p[y:y+h,x:x+w] = view_p
-	return img_p
+    """ [args]: ksize - (h,w) tuple specifying kernel size"""
+    img_p = np.copy(img)
+    x,y,w,h = int(bbox[0]),int(bbox[1]),bbox[2],bbox[3]
+    view = img[y:y+h,x:x+w]
+    view_p = cv2.GaussianBlur(view, args['ksize'], args['sigma'])
+    img_p[y:y+h,x:x+w] = view_p
+    return img_p
 
 def blackout(img, bbox, **args):
-	img_p = np.copy(img)
-	x,y,w,h = int(bbox[0]),int(bbox[1]),bbox[2],bbox[3]
-	img_p[y:y+h,x:x+w] = 0.
-	return img_p
+    img_p = np.copy(img)
+    x,y,w,h = int(bbox[0]),int(bbox[1]),bbox[2],bbox[3]
+    img_p[y:y+h,x:x+w] = 0.
+    return img_p
 
 def gen_ablation(imgId = None, mode = 'blackout', ct = None,  **args):
 	"""set the text area of the given image to black,
@@ -69,4 +69,3 @@ if __name__ == '__main__':
 	print 'Saving img...'
 	io.imsave(OUT_PATH+str(imgId)+'_original'+'.jpg', old)
 	io.imsave(OUT_PATH+str(imgId)+'_ablated'+'.jpg', new)
-
