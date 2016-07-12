@@ -8,7 +8,12 @@ import pylab
 
 import cv2
 
-DATA_PATH = '/Users/zhuyifan/Downloads/coco/'
+import os 
+CD = os.path.dirname(os.path.realpath(__file__))
+
+print CD
+
+DATA_PATH = CD + '/../data/coco/'
 DATA_TYPE = 'train2014'
 OUT_PATH = 'result/'
 
@@ -27,34 +32,41 @@ def blackout(img, bbox, **args):
 	img_p[y:y+h,x:x+w] = 0.
 	return img_p
 
-def gen_ablation(saveto, imgId = None, mode = 'blackout', **args):
+def gen_ablation(imgId = None, mode = 'blackout', ct = None,  **args):
 	"""set the text area of the given image to black,
-	save both the original and ablated image to [saveto]"""
-	ct = coco_text.COCO_Text('COCO_Text.json')
-
+	return (imgId, old_img, new_img) triplet"""
+	if ct == None:
+		ct = coco_text.COCO_Text('COCO_Text.json')
 	if imgId == None:
 		imgIds = ct.getImgIds(imgIds=ct.train, catIds=[('legibility','legible')])
 		imgId = imgIds[np.random.randint(0,len(imgIds))]
 
 	img = ct.loadImgs([imgId])[0]
-	I = io.imread('%s/%s/%s'%(DATA_PATH,DATA_TYPE,img['file_name']))
+	orig = io.imread('%s/%s/%s'%(DATA_PATH,DATA_TYPE,img['file_name']))
 	annIds = ct.getAnnIds(imgIds=imgId)
-	bbox = ct.loadAnns(annIds)[0]['bbox'] #format: [x,y,width,height]
-
-	print 'Saving img...'
-	io.imsave(saveto+str(imgId)+'_original'+'.jpg', I)
 	
-	if mode=='blackout':
-		I_p =  blackout(I, bbox)
-	elif mode=='gaussian':
-		I_p = gaussian(I, bbox, ksize=args['ksize'], sigma = args['sigma'])
+	anns = ct.loadAnns(annIds) 
 
-	io.imsave(saveto+str(imgId)+'_ablated'+'.jpg', I_p)
+	if len(anns)==0:
+		print("[WARNING] Weirdly sampled an image without text contents")
+
+	img = orig
+	for ann in anns:
+		bbox = ann['bbox'] #format: [x,y,width,height]
+		if mode=='blackout':
+			img =  blackout(img, bbox)
+		elif mode=='gaussian':
+			img = gaussian(img, bbox, ksize=args['ksize'], sigma = args['sigma'])
+
+	return imgId, orig, img
 
 
 if __name__ == '__main__':
-	ct = coco_text.COCO_Text('COCO_Text.json')
 	# imgIds = ct.getImgIds(imgIds=ct.val, catIds=[('legibility','legible'),('class','machine printed')])
 	# imgId = imgIds[np.random.randint(0,len(imgIds))]
-	gen_ablation(OUT_PATH, mode = 'gaussian', ksize=(7,7),sigma=7.)
+	imgId, old, new = gen_ablation(mode = 'gaussian', ksize=(7,7),sigma=7.)
+
+	print 'Saving img...'
+	io.imsave(OUT_PATH+str(imgId)+'_original'+'.jpg', old)
+	io.imsave(OUT_PATH+str(imgId)+'_ablated'+'.jpg', new)
 
