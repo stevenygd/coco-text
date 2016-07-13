@@ -44,7 +44,8 @@ def gen_ablation(imgIds = [], mode = 'blackout', ct = None,  **args):
 
     imgs = ct.loadImgs(imgIds)
     results = []
-    for img in imgs:
+    for idx, img in enumerate(imgs):
+        print("Ablating image {}/{}".format(idx+1, len(imgIds)))
         orig = io.imread('%s/%s/%s'%(DATA_PATH,DATA_TYPE,img['file_name']))
         annIds = ct.getAnnIds(imgIds=img['id'])
         
