@@ -32,6 +32,15 @@ def blackout(img, bbox, **args):
     img_p[y:y+h,x:x+w] = 0.
     return img_p
 
+def median(img, bbox, **args):
+    """[args]: ksize - integer specifying dimension of square window"""
+    img_p = np.copy(img)
+    x,y,w,h = int(bbox[0]),int(bbox[1]),int(bbox[2]),int(bbox[3])
+    view = img[y:y+h,x:x+w]
+    view_p = cv2.medianBlur(view, args['ksize'])
+    img_p[y:y+h,x:x+w] = view_p
+    return img_p
+
 def gen_ablation(imgIds = [], mode = 'blackout', ct = None,  **args):
     """Perform specified ablation on every image specified by the imgIds list.
     If no imgId is specified, will randomly sample an image with text.
@@ -61,6 +70,8 @@ def gen_ablation(imgIds = [], mode = 'blackout', ct = None,  **args):
                 running = blackout(running, bbox)
             elif mode=='gaussian':
                 running = gaussian(running, bbox, ksize=args['ksize'], sigma = args['sigma'])
+            elif mode=='median':
+                running = median(running, bbox, ksize=args['ksize'])
         results.append((img['id'], orig, running))
     return results
 
@@ -68,7 +79,7 @@ def gen_ablation(imgIds = [], mode = 'blackout', ct = None,  **args):
 if __name__ == '__main__':
     # imgIds = ct.getImgIds(imgIds=ct.val, catIds=[('legibility','legible'),('class','machine printed')])
     # imgId = imgIds[np.random.randint(0,len(imgIds))]
-    results = gen_ablation(mode = 'gaussian', ksize=(7,7),sigma=7.)
+    results = gen_ablation(mode = 'median', ksize=7)
 
     for imgId, old, new in results:
         print 'Saving img {}'.format(imgId)
