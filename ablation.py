@@ -46,7 +46,7 @@ def gen_ablation(imgIds = [], mode = 'blackout', ct = None,  **args):
     If no imgId is specified, will randomly sample an image with text.
     return (imgId, old_img, new_img) list"""
     if ct == None:
-        ct = coco_text.COCO_Text('COCO_Text.json')
+        ct = coco_text.COCO_Text(os.path.join(CD, 'COCO_Text.json'))
     if imgIds == []:
         imgIds = ct.getImgIds(imgIds=ct.train, catIds=[('legibility','legible')])
         imgIds = [imgIds[np.random.randint(0,len(imgIds))]]
