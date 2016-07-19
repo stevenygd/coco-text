@@ -69,7 +69,12 @@ def destroy_bg(img, imgId, coco):
         mk2 = mask.merge( mask.frPyObjects(rles, h,w), intersect = 0)
         mk = mask.merge([mk,mk2], intersect = 0) if mk!=None else mk2
     mk = mask.decode([mk])
-    return img*mk
+
+    #handle non-RGB images
+    if len(img.shape)<3:
+        return img[:,np.newaxis]*mk
+    else:
+        return img*mk
 
 
 def ablate(imgIds = [], mode ='destroy', coco = None, ct = None,  **args):
@@ -133,7 +138,7 @@ if __name__ == '__main__':
     # imgIds = ct.getImgIds(imgIds=ct.val, catIds=[('legibility','legible'),('class','machine printed')])
     # imgId = imgIds[np.random.randint(0,len(imgIds))]
     from six.moves import cPickle as pkl
-    with open('../input/no_texts_img_ids.pkl') as f:
+    with open('../input/no_text_has_instance_img_ids') as f:
         imgIds = pkl.load(f)
 
     results = ablate( imgIds = imgIds, mode = 'destroy', width=7)
