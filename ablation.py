@@ -10,6 +10,9 @@ import cv2
 
 import os 
 CD = os.path.dirname(os.path.realpath(__file__))
+import sys
+sys.path.insert(0,CD+'/../../coco/PythonAPI/')
+from pycocotools.coco import COCO, mask
 
 print CD
 
@@ -41,16 +44,53 @@ def median(img, bbox, **args):
     img_p[y:y+h,x:x+w] = view_p
     return img_p
 
-def gen_ablation(imgIds = [], mode = 'blackout', ct = None,  **args):
-    """Perform specified ablation on every image specified by the imgIds list.
-    If no imgId is specified, will randomly sample an image with text.
-    return (imgId, old_img, new_img) list"""
-    if ct == None:
+def destroy_bg(img, imgId, coco):
+    """Blackout everything in the background that is not annotated
+    as a coco instance"""
+    annIds = coco.getAnnIds(imgIds=imgId)
+    anns = coco.loadAnns(annIds)
+
+    segs = []
+    for ann in anns:
+        segs += ann['segmentation']
+
+    mk = mask.merge( mask.frPyObjects(segs, img.shape[0], img.shape[1]), intersect = 0)
+    mk = mask.decode([mk])
+    return img*mk
+
+
+def ablate(imgIds = [], mode ='destroy', coco = None, ct = None,  **args):
+    """[ablation entry point 2.0]
+    Created to accomodate background-destroying ablation. Will dispatch all 
+    old ablations (gaussian, blackout, & median) to gen_ablation."""
+
+    if ct is None:
         ct = coco_text.COCO_Text(os.path.join(CD, 'COCO_Text.json'))
     if imgIds == []:
         imgIds = ct.getImgIds(imgIds=ct.train, catIds=[('legibility','legible')])
         imgIds = [imgIds[np.random.randint(0,len(imgIds))]]
 
+    #dispatch to old ablation entry point
+    if not mode == 'destroy':
+        return gen_ablation(imgIds, mode, ct, **args)
+
+    #else do destroy_bg
+    if coco is None:
+        coco = COCO('%s/annotations/instances_%s.json'%(DATA_PATH,DATA_TYPE))
+    imgs = ct.loadImgs(imgIds)
+    results = []
+    for idx, img in enumerate(imgs):
+        print("Ablating image {}/{}".format(idx+1, len(imgIds)))
+        orig = io.imread('%s/%s/%s'%(DATA_PATH,DATA_TYPE,img['file_name']))
+        ablt = destroy_bg(orig, img['id'], coco)
+        results.append((img['id'], orig, ablt))
+    return results
+
+
+def gen_ablation(imgIds = [], mode = 'blackout', ct = None,  **args):
+    """Perform specified ablation on every image specified by the imgIds list.
+    If no imgId is specified, will randomly sample an image with text.
+    return (imgId, old_img, new_img) list"""
     imgs = ct.loadImgs(imgIds)
     results = []
     for idx, img in enumerate(imgs):
@@ -79,7 +119,7 @@ def gen_ablation(imgIds = [], mode = 'blackout', ct = None,  **args):
 if __name__ == '__main__':
     # imgIds = ct.getImgIds(imgIds=ct.val, catIds=[('legibility','legible'),('class','machine printed')])
     # imgId = imgIds[np.random.randint(0,len(imgIds))]
-    results = gen_ablation(mode = 'median', width=7)
+    results = ablate( mode = 'destroy', width=7)
 
     for imgId, old, new in results:
         print 'Saving img {}'.format(imgId)
