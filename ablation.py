@@ -37,6 +37,9 @@ def median(img, bbox, **args):
     img_p = np.copy(img)
     x,y,w,h = int(bbox[0]),int(bbox[1]),int(bbox[2]),int(bbox[3])
     view = img[y:y+h,x:x+w]
+    if not len([p for p in view.shape if p > 0]) == len(view.shape):
+       return img_p
+
     view_p = cv2.medianBlur(view, args['width'])
     img_p[y:y+h,x:x+w] = view_p
     return img_p
