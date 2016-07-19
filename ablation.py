@@ -11,7 +11,7 @@ import cv2
 import os 
 CD = os.path.dirname(os.path.realpath(__file__))
 import sys
-sys.path.insert(0,CD+'/../../coco/PythonAPI/')
+sys.path.insert(0,CD+'/../coco/PythonAPI/')
 from pycocotools.coco import COCO, mask
 
 print CD
