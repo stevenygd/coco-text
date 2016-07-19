@@ -8,7 +8,7 @@ import pylab
 
 import cv2
 
-import os 
+import os
 CD = os.path.dirname(os.path.realpath(__file__))
 import sys
 sys.path.insert(0,CD+'/../coco/PythonAPI/')
@@ -77,9 +77,9 @@ def destroy_bg(img, imgId, coco):
         return img*mk
 
 
-def ablate(imgIds = [], mode ='destroy', coco = None, ct = None,  **args):
+def ablate(imgIds = [], mode ='destroy', out_path="tmp", coco = None, ct = None,  **args):
     """[ablation entry point 2.0]
-    Created to accomodate background-destroying ablation. Will dispatch all 
+    Created to accomodate background-destroying ablation. Will dispatch all
     old ablations (gaussian, blackout, & median) to gen_ablation."""
 
     if ct is None:
@@ -90,7 +90,7 @@ def ablate(imgIds = [], mode ='destroy', coco = None, ct = None,  **args):
 
     #dispatch to old ablation entry point
     if not mode == 'destroy':
-        return gen_ablation(imgIds, mode, ct, **args)
+        return gen_ablation(imgIds, mode, ct, out_path=out_path, **args)
 
     #else do destroy_bg
     if coco is None:
@@ -99,13 +99,18 @@ def ablate(imgIds = [], mode ='destroy', coco = None, ct = None,  **args):
     results = []
     for idx, img in enumerate(imgs):
         print("Ablating image {}/{} with id {} ".format(idx+1, len(imgIds), img['id']))
-        orig = io.imread('%s/%s/%s'%(DATA_PATH,DATA_TYPE,img['file_name']))
+        ori_file_name = os.path.join(CD, DATA_PATH, DATA_TYPE, img['file_name'])
+        orig = io.imread(ori_file_name)
+
         ablt = destroy_bg(orig, img['id'], coco)
-        results.append((img['id'], orig, ablt))
+        out_file_name = os.path.join(CD, "..", out_path, "%s_%s"%(mode, img['file_name']))
+        io.imsave(out_file_name, ablt)
+
+        results.append((img['id'], ori_file_name, out_file_name))
     return results
 
 
-def gen_ablation(imgIds = [], mode = 'blackout', ct = None,  **args):
+def gen_ablation(imgIds = [], mode = 'blackout', ct = None, out_path="tmp", **args):
     """Perform specified ablation on every image specified by the imgIds list.
     If no imgId is specified, will randomly sample an image with text.
     return (imgId, old_img, new_img) list"""
@@ -113,10 +118,10 @@ def gen_ablation(imgIds = [], mode = 'blackout', ct = None,  **args):
     results = []
     for idx, img in enumerate(imgs):
         print("Ablating image {}/{}".format(idx+1, len(imgIds)))
-        orig = io.imread('%s/%s/%s'%(DATA_PATH,DATA_TYPE,img['file_name']))
+        ori_file_name = '%s/%s/%s'%(DATA_PATH,DATA_TYPE,img['file_name'])
+        orig = io.imread(ori_file_name)
         annIds = ct.getAnnIds(imgIds=img['id'])
-        
-        anns = ct.loadAnns(annIds) 
+        anns = ct.loadAnns(annIds)
 
         if len(anns)==0:
             print("[WARNING] Weirdly sampled an image without text contents:{}".format(img['file_name']))
@@ -130,7 +135,9 @@ def gen_ablation(imgIds = [], mode = 'blackout', ct = None,  **args):
                 running = gaussian(running, bbox, ksize=args['ksize'], sigma = args['sigma'])
             elif mode=='median':
                 running = median(running, bbox, width=args['width'])
-        results.append((img['id'], orig, running))
+        out_file_name = os.path.join(CD, "..", out_path, "%s_%s"%(mode, img['file_name']))
+        io.imsave(out_file_name, running)
+        results.append((img['id'], ori_file_name, out_file_name))
     return results
 
 
