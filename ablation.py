@@ -49,15 +49,25 @@ def median(img, bbox, **args):
 
 def destroy_bg(img, imgId, coco):
     """Blackout everything in the background that is not annotated
-    as a coco instance"""
+    as a coco instance
+    [pre] Every imgid passed in has at least one object instance annotated."""
     annIds = coco.getAnnIds(imgIds=imgId)
     anns = coco.loadAnns(annIds)
 
-    segs = []
+    h, w = img.shape[0], img.shape[1]
+    segs, rles = [], []
     for ann in anns:
-        segs += ann['segmentation']
+        if not ann['iscrowd']:
+            segs += ann['segmentation']
+        else:
+            rles.append(ann['segmentation'])
 
-    mk = mask.merge( mask.frPyObjects(segs, img.shape[0], img.shape[1]), intersect = 0)
+    mk = None
+    if len(segs)!=0:
+        mk = mask.merge( mask.frPyObjects(segs, h,w), intersect = 0)
+    if len(rles)!=0:
+        mk2 = mask.merge( mask.frPyObjects(rles, h,w), intersect = 0)
+        mk = mask.merge([mk,mk2], intersect = 0) if mk!=None else mk2
     mk = mask.decode([mk])
     return img*mk
 
@@ -80,10 +90,10 @@ def ablate(imgIds = [], mode ='destroy', coco = None, ct = None,  **args):
     #else do destroy_bg
     if coco is None:
         coco = COCO('%s/annotations/instances_%s.json'%(DATA_PATH,DATA_TYPE))
-    imgs = ct.loadImgs(imgIds)
+    imgs = coco.loadImgs(imgIds)
     results = []
     for idx, img in enumerate(imgs):
-        print("Ablating image {}/{}".format(idx+1, len(imgIds)))
+        print("Ablating image {}/{} with id {} ".format(idx+1, len(imgIds), img['id']))
         orig = io.imread('%s/%s/%s'%(DATA_PATH,DATA_TYPE,img['file_name']))
         ablt = destroy_bg(orig, img['id'], coco)
         results.append((img['id'], orig, ablt))
@@ -122,7 +132,11 @@ def gen_ablation(imgIds = [], mode = 'blackout', ct = None,  **args):
 if __name__ == '__main__':
     # imgIds = ct.getImgIds(imgIds=ct.val, catIds=[('legibility','legible'),('class','machine printed')])
     # imgId = imgIds[np.random.randint(0,len(imgIds))]
-    results = ablate( mode = 'destroy', width=7)
+    from six.moves import cPickle as pkl
+    with open('../input/no_texts_img_ids.pkl') as f:
+        imgIds = pkl.load(f)
+
+    results = ablate( imgIds = imgIds, mode = 'destroy', width=7)
 
     for imgId, old, new in results:
         print 'Saving img {}'.format(imgId)
