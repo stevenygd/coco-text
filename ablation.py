@@ -20,6 +20,8 @@ DATA_PATH = CD + '/../data/coco/'
 DATA_TYPE = 'train2014'
 OUT_PATH = 'result/'
 
+coco = COCO('%s/annotations/instances_%s.json'%(DATA_PATH,DATA_TYPE))
+
 def gaussian(img, bbox, **args):
     """ [args]: ksize - (h,w) tuple specifying kernel size"""
     img_p = np.copy(img)
@@ -47,10 +49,9 @@ def median(img, bbox, **args):
     img_p[y:y+h,x:x+w] = view_p
     return img_p
 
-def destroy_bg(img, imgId, coco):
-    """Blackout everything in the background that is not annotated
-    as a coco instance
-    [pre] Every imgid passed in has at least one object instance annotated."""
+def _get_fg_instances(img, imgId, coco):
+    """Helper to get all foreground annotated img instance pixels, 
+    returned on a blackened background of the same size as img"""
     annIds = coco.getAnnIds(imgIds=imgId)
     anns = coco.loadAnns(annIds)
 
@@ -72,12 +73,27 @@ def destroy_bg(img, imgId, coco):
 
     #handle non-RGB images
     if len(img.shape)<3:
-        return img[:,np.newaxis]*mk
-    else:
-        return img*mk
+        mk = mk.reshape((h,w))
+    return img*mk, mk
 
+def destroy_bg(img, imgId, coco, **args):
+    """Blackout everything in the background that is not annotated
+    as a coco instance
+    [pre] Every imgid passed in has at least one object instance annotated."""
+    instances, _ = _get_fg_instances(img,imgId,coco)
+    return instances
 
-def ablate(imgIds = [], mode ='destroy', out_path="tmp", coco = None, ct = None,  **args):
+def median_bg(img, imgId, coco, **args):
+    """Run a median filter on everything in the background that is not annotated
+    as a coco instance
+    [pre] Every imgid passed in has at least one object instance annotated."""
+    instance, mask = _get_fg_instances(img,imgId,coco)
+    inv_mask = np.ones(mask.shape).astype(mask.dtype) - mask
+    bg = cv2.medianBlur(img, args['width']) * inv_mask
+    # print bg.shape, instance.shape, img.shape
+    return bg+instance
+
+def ablate(imgIds = [], mode ='destroy', out_path="tmp", coco = coco, ct = None,  **args):
     """[ablation entry point 2.0]
     Created to accomodate background-destroying ablation. Will dispatch all
     old ablations (gaussian, blackout, & median) to gen_ablation."""
@@ -89,7 +105,7 @@ def ablate(imgIds = [], mode ='destroy', out_path="tmp", coco = None, ct = None,
         imgIds = [imgIds[np.random.randint(0,len(imgIds))]]
 
     #dispatch to old ablation entry point
-    if not mode == 'destroy':
+    if mode in ['gaussian', 'blackout', 'median']:
         return gen_ablation(imgIds, mode, ct, out_path=out_path, **args)
 
     #else do destroy_bg
@@ -102,7 +118,11 @@ def ablate(imgIds = [], mode ='destroy', out_path="tmp", coco = None, ct = None,
         ori_file_name = os.path.join(CD, DATA_PATH, DATA_TYPE, img['file_name'])
         orig = io.imread(ori_file_name)
 
-        ablt = destroy_bg(orig, img['id'], coco)
+        if mode == 'destroy':
+            ablt = destroy_bg(orig, img['id'], coco, **args)
+        elif mode == 'median_bg':
+            ablt = median_bg(orig, img['id'], coco, **args)
+
         out_file_name = os.path.join(CD, "..", out_path, "%s_%s"%(mode, img['file_name']))
         io.imsave(out_file_name, ablt)
 
@@ -148,7 +168,7 @@ if __name__ == '__main__':
     with open('../input/no_text_has_instance_img_ids') as f:
         imgIds = pkl.load(f)
 
-    results = ablate( imgIds = imgIds, mode = 'destroy', width=7)
+    results = ablate( imgIds = imgIds, mode = 'median_bg', width=51)
 
     for imgId, old, new in results:
         print 'Saving img {}'.format(imgId)
