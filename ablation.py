@@ -49,15 +49,19 @@ def median(img, bbox, **args):
     img_p[y:y+h,x:x+w] = view_p
     return img_p
 
-def _get_fg_instances(img, imgId, coco):
+def _get_fg_instances(img, imgId, coco, **args):
     """Helper to get all foreground annotated img instance pixels, 
     returned on a blackened background of the same size as img"""
     annIds = coco.getAnnIds(imgIds=imgId)
     anns = coco.loadAnns(annIds)
 
+    if 'category' in args:
+        catid = coco.getCatIds(catNms=[args['category']])[0]
     h, w = img.shape[0], img.shape[1]
     segs, rles = [], []
     for ann in anns:
+        if 'category' in args and ann["category_id"] != catid:
+            continue
         if not ann['iscrowd']:
             segs += ann['segmentation']
         else:
@@ -80,14 +84,14 @@ def destroy_bg(img, imgId, coco, **args):
     """Blackout everything in the background that is not annotated
     as a coco instance
     [pre] Every imgid passed in has at least one object instance annotated."""
-    instances, _ = _get_fg_instances(img,imgId,coco)
+    instances, _ = _get_fg_instances(img,imgId,coco, **args)
     return instances
 
 def median_bg(img, imgId, coco, **args):
     """Run a median filter on everything in the background that is not annotated
     as a coco instance
     [pre] Every imgid passed in has at least one object instance annotated."""
-    instance, mask = _get_fg_instances(img,imgId,coco)
+    instance, mask = _get_fg_instances(img,imgId,coco, **args)
     inv_mask = np.ones(mask.shape).astype(mask.dtype) - mask
     bg = cv2.medianBlur(img, args['width']) * inv_mask
     # print bg.shape, instance.shape, img.shape
